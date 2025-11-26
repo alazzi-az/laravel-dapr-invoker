@@ -9,6 +9,7 @@ use Dapr\Deserialization\IDeserializer;
 use Dapr\Serialization\ISerializer;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Promise\PromiseInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -76,14 +77,13 @@ final class QuerySafeDaprHttpClient extends DaprHttpClient
         return $this->http->requestAsync($httpMethod, $url, $options);
     }
 
-    /** Optional sync helper */
     public function invokeMethod(
         string $httpMethod,
         AppId $appId,
         string $methodName,
         mixed $data = null,
         array $metadata = []
-    ) {
+    ): ResponseInterface {
         return $this->invokeMethodAsync($httpMethod, $appId, $methodName, $data, $metadata)->wait();
     }
 }
