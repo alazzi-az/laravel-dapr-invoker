@@ -10,6 +10,7 @@ use Dapr\Serialization\ISerializer;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Log\LoggerInterface;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Fixes service invocation query handling by encoding only the path segments
@@ -83,7 +84,8 @@ final class QuerySafeDaprHttpClient extends DaprHttpClient
         string $methodName,
         mixed $data = null,
         array $metadata = []
-    ) {
+    ): ResponseInterface {
         return $this->invokeMethodAsync($httpMethod, $appId, $methodName, $data, $metadata)->wait();
     }
 }
+
