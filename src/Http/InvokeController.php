@@ -24,6 +24,7 @@ class InvokeController
 
         $handler = $this->resolveHandler($method);
 
+
         if (! $handler) {
             abort(404, "No handler registered for invoke method [$method].");
         }
@@ -34,7 +35,9 @@ class InvokeController
             'method' => $method,
             'handler' => is_string($handler) ? $handler : get_debug_type($handler),
         ]);
-
+        if (is_array($handler) && count($handler) === 2) {
+            $handler = $handler[0].'@'.$handler[1];
+        }
         return app()->call($handler, [
             'request' => $request,
             'payload' => $payload,
