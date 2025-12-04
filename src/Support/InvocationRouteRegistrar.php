@@ -34,8 +34,8 @@ class InvocationRouteRegistrar
                 $route = Route::daprInvokeController($options['controller'] ?? InvokeController::class, $options);
 
                 // 👇 This is the key: put handlers onto the route so they survive route:cache
-                $route->defaults['dapr_handlers'] = array_merge(
-                    $route->defaults['dapr_handlers'] ?? [],
+                $route->defaults['dapr_invoke_handlers'] = array_merge(
+                    $route->defaults['dapr_invoke_handlers'] ?? [],
                     $handlers
                 );
 
