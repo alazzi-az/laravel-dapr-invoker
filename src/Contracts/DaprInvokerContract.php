@@ -3,11 +3,28 @@
 namespace AlazziAz\LaravelDaprInvoker\Contracts;
 
 
-
+use AlazziAz\LaravelDaprInvoker\Support\DaprInvocationResult;
 use GuzzleHttp\Promise\PromiseInterface;
 
 interface DaprInvokerContract
 {
+    /**
+     * @param  string               $appId
+     * @param  string               $method
+     * @param  mixed                $payload
+     * @param  string               $httpVerb   One of: GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD
+     * @param  array<string,mixed>  $query
+     * @param  array<string,string> $headers
+     * @return mixed
+     */
+    public function invokeRaw(
+        string $appId,
+        string $method,
+        mixed  $payload = null,
+        string $httpVerb = 'POST',
+        array  $query = [],
+        array  $headers = []
+    ): mixed;
     /**
      * @param  string               $appId
      * @param  string               $method
@@ -24,7 +41,7 @@ interface DaprInvokerContract
         string $httpVerb = 'POST',
         array  $query = [],
         array  $headers = []
-    ): mixed;
+    ): DaprInvocationResult;
 
     public function invokeAsync(
         string $appId,

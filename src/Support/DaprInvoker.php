@@ -26,7 +26,38 @@ class DaprInvoker implements DaprInvokerContract
         }
     }
 
-    public function invoke(
+public function invoke(
+        string $appId,
+        string $method,
+        mixed  $payload = null,
+        string $httpVerb = 'POST',
+        array  $query = [],
+        array  $headers = []
+): DaprInvocationResult {
+    $response = $this->invokeRaw($appId, $method, $data, $metadata, $httpMethod);
+
+    $status  = $response->getStatusCode();
+    $headers = $response->getHeaders();
+    $bodyStr = (string) $response->getBody();
+
+    // Decide how to decode: JSON vs raw string
+    $contentType = $response->getHeaderLine('Content-Type');
+
+    if (str_contains($contentType, 'application/json')) {
+        $decoded = $bodyStr === '' ? null : json_decode($bodyStr, true);
+    } else {
+        $decoded = $bodyStr;
+    }
+
+    return new DaprInvocationResult(
+        body: $decoded,
+        status: $status,
+        headers: $headers,
+        raw: $response
+    );
+}
+
+    public function invokeRaw(
         string $appId,
         string $method,
         mixed  $payload = null,
