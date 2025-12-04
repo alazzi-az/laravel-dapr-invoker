@@ -51,9 +51,9 @@ and Laravel receives it as a **normal HTTP request** with the same `$request`, m
 
 This lets you:
 
-* Call local Laravel routes through Dapr (loopback mode)
-* Invoke any microservice registered with Dapr by its `app-id`
-* Use the same Facade methods for internal and external calls
+- Call local Laravel routes through Dapr (loopback mode)
+- Invoke any microservice registered with Dapr by its `app-id`
+- Use the same Facade methods for internal and external calls
 
 ---
 
@@ -83,20 +83,21 @@ Route::daprInvokeController();
 ### 🧠 Why use special registration?
 
 By default, Dapr can call your normal Laravel routes directly — but
-**`Route::daprInvoke()`** exists to give you *extra control*.
+**`Route::daprInvoke()`** exists to give you _extra control_.
 
 Use it when you need to:
 
-* Apply **custom middleware** (`api`, `verify.dapr.signature`, etc.)
-* Enforce **HMAC / shared secret validation** for inter-service calls
-* Add **metrics**, **audit logging**, or **rate-limiting**
-* Separate Dapr-only endpoints from public HTTP routes
+- Apply **custom middleware** (`api`, `verify.dapr.signature`, etc.)
+- Enforce **HMAC / shared secret validation** for inter-service calls
+- Add **metrics**, **audit logging**, or **rate-limiting**
+- Separate Dapr-only endpoints from public HTTP routes
 
-Example config (`config/dapr-invocation.php`):
+Example config (`config/dapr.php`):
 
 ```php
 return [
-    'prefix' => 'dapr/invoke',
+  'invocation'=[
+'prefix' => 'dapr/invoke',
     'auto_register' => false,
     'middleware' => [
         // \App\Http\Middleware\Authenticate::class,
@@ -108,6 +109,7 @@ return [
         // 'service.method' => [Controller::class, 'method'],
         // 'orders.create' => [App\Http\Controllers\OrderController::class, 'createViaInvoke'],
     ],
+  ]
 ];
 ```
 
@@ -179,10 +181,11 @@ Publish and customize the configuration if needed:
 php artisan vendor:publish --provider="AlazziAz\\LaravelDaprInvoker\\ServiceProvider" --tag=dapr-invocation-config
 ```
 
-Example `config/dapr-invocation.php`:
+Example `config/dapr.php`:
 
 ```php
 return [
+    'invocation'=>[
     'prefix' => 'dapr/invoke',
     'auto_register' => false,
     'middleware' => [],
@@ -190,6 +193,7 @@ return [
     'signature_header' => 'x-dapr-signature',
     'signature_secret' => env('DAPR_INVOKE_SECRET'),
     'map' => [],
+    ]
 ];
 ```
 
@@ -197,12 +201,12 @@ return [
 
 ## 🧱 Technical Highlights
 
-* Compatible with [`dapr/php-sdk`](https://github.com/dapr/php-sdk)
-* Supports **calling any Laravel route** directly through Dapr (no registration)
-* Supports **custom Dapr invocation routes** with middleware and security
-* Provides **sync and async** invocation via Facade or DI
-* Handles **query params, headers, and payloads** automatically
-* SOLID, testable, Laravel-ready (auto-discovery, contracts, facades)
+- Compatible with [`dapr/php-sdk`](https://github.com/dapr/php-sdk)
+- Supports **calling any Laravel route** directly through Dapr (no registration)
+- Supports **custom Dapr invocation routes** with middleware and security
+- Provides **sync and async** invocation via Facade or DI
+- Handles **query params, headers, and payloads** automatically
+- SOLID, testable, Laravel-ready (auto-discovery, contracts, facades)
 
 ---
 
@@ -250,11 +254,32 @@ and protected by your configured Dapr middleware.
 
 ---
 
+> **Important – CSRF Exclusion Required:**
+> Dapr service invocation is stateless and does not include CSRF tokens.
+> To allow Dapr to call your Laravel handlers (e.g., /dapr/invoke/{method}),
+> you must disable CSRF protection for that prefix:
+>
+> ```php
+>
+> $middleware->validateCsrfTokens(except: [
+>   'dapr/invoke/*',
+> ]);
+> ```
+>
+> Without this, POST/PUT/PATCH/>DELETE requests invoked through Dapr
+> will fail with: 419 CSRF token mismatch.
+
+> **you can list dapr only routes by run following command:**
+>
+> ```bash
+> php artisan dapr-invoker:list
+> ```
+
 ## 🧩 Requirements
 
-* PHP ≥ 8.2
-* Laravel 10 or 11
-* Running Dapr sidecar
+- PHP ≥ 8.2
+- Laravel 10 or 11
+- Running Dapr sidecar
 
 ```bash
 dapr run --app-id my-laravel-app --app-port 8000 -- php artisan serve --port=8000

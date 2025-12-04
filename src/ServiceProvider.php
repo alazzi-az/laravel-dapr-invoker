@@ -2,6 +2,7 @@
 
 namespace AlazziAz\LaravelDaprInvoker;
 
+use AlazziAz\LaravelDaprInvoker\Console\ListInvocationRoutesCommand;
 use AlazziAz\LaravelDaprInvoker\Contracts\DaprInvokerContract;
 use AlazziAz\LaravelDaprInvoker\Support\DaprInvoker;
 use AlazziAz\LaravelDaprInvoker\Support\InvocationRegistry;
@@ -21,21 +22,23 @@ class ServiceProvider extends BaseServiceProvider
 {
     public function boot(): void
     {
-        $this->publishes([
-            __DIR__ . '/../config/dapr-invocation.php' => config_path('dapr-invocation.php'),
-        ], 'dapr-invocation-config');
 
         InvocationRouteRegistrar::register();
 
         if (config('dapr.invocation.auto_register', false)) {
             $this->registerRoutes();
         }
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ListInvocationRoutesCommand::class,
+            ]);
+        }
     }
 
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/dapr-invocation.php', 'dapr.invocation');
 
+        $this->mergeConfigFrom(__DIR__.'/../config/dapr-invocation.php', 'dapr');
         $this->app->singleton(InvocationSignatureVerifier::class);
         $this->app->singleton(InvocationRegistry::class);
         $this->app->bind(DaprClient::class, function ($app) {

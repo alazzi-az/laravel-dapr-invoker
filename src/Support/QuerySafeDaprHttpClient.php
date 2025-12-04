@@ -3,11 +3,10 @@
 namespace AlazziAz\LaravelDaprInvoker\Support;
 
 
-use Dapr\Client\DaprHttpClient;
 use Dapr\Client\AppId;
+use Dapr\Client\DaprHttpClient;
 use Dapr\Deserialization\IDeserializer;
 use Dapr\Serialization\ISerializer;
-use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Promise\PromiseInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -19,34 +18,42 @@ use Psr\Log\LoggerInterface;
  */
 final class QuerySafeDaprHttpClient extends DaprHttpClient
 {
-    private string $base;
-    private GuzzleClient $http;
+
 
     public function __construct(
-        string $defaultHttpHost,
-        IDeserializer $deserializer,
-        ISerializer $serializer,
+        string          $defaultHttpHost,
+        IDeserializer   $deserializer,
+        ISerializer     $serializer,
         LoggerInterface $logger
-    ) {
+    )
+    {
         parent::__construct($defaultHttpHost, $deserializer, $serializer, $logger);
 
-        $this->base = rtrim($defaultHttpHost, '/');
-        $this->http = new GuzzleClient([
-            'base_uri'    => $this->base,
-            'http_errors' => false,
-        ]);
+
+    }
+
+    public function invokeMethod(
+        string $httpMethod,
+        AppId  $appId,
+        string $methodName,
+        mixed  $data = null,
+        array  $metadata = []
+    ): ResponseInterface
+    {
+        return $this->invokeMethodAsync($httpMethod, $appId, $methodName, $data, $metadata)->wait();
     }
 
     /** Async invocation — fixed */
     public function invokeMethodAsync(
         string $httpMethod,
-        AppId $appId,
+        AppId  $appId,
         string $methodName,
-        mixed $data = null,
-        array $metadata = []
-    ): PromiseInterface {
+        mixed  $data = null,
+        array  $metadata = []
+    ): PromiseInterface
+    {
         // Split "path?..." into path + array
-        $parsed  = parse_url($methodName);
+        $parsed = parse_url($methodName);
         $rawPath = trim((string)($parsed['path'] ?? $methodName), '/');
 
         $qs = [];
@@ -55,7 +62,7 @@ final class QuerySafeDaprHttpClient extends DaprHttpClient
         }
 
         // Encode PATH segments only (keep slashes)
-        $encodedApp  = rawurlencode($appId->getAddress());
+        $encodedApp = rawurlencode($appId->getAddress());
         $encodedPath = implode('/', array_map('rawurlencode', explode('/', $rawPath)));
 
         $url = "/v1.0/invoke/{$encodedApp}/method/{$encodedPath}";
@@ -69,21 +76,11 @@ final class QuerySafeDaprHttpClient extends DaprHttpClient
 
         // JSON body only for verbs that carry one
         $upper = strtoupper($httpMethod);
-        if ($data !== null && !in_array($upper, ['GET','HEAD','DELETE'], true)) {
+        if ($data !== null && !in_array($upper, ['GET', 'HEAD', 'DELETE'], true)) {
             $options['body'] = $this->serializer->as_json($data);
             $options['headers']['Content-Type'] = 'application/json';
         }
 
-        return $this->http->requestAsync($httpMethod, $url, $options);
-    }
-
-    public function invokeMethod(
-        string $httpMethod,
-        AppId $appId,
-        string $methodName,
-        mixed $data = null,
-        array $metadata = []
-    ): ResponseInterface {
-        return $this->invokeMethodAsync($httpMethod, $appId, $methodName, $data, $metadata)->wait();
+        return $this->httpClient->requestAsync($httpMethod, $url, $options);
     }
 }
