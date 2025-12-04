@@ -29,6 +29,8 @@ class ServiceProvider extends BaseServiceProvider
         if (config('dapr.invocation.auto_register', false)) {
             $this->loadRoutesFrom(__DIR__.'/../routes/dapr-invocation.php');
         }
+        $this->rebuildInvocationRegistryFromRoutes();
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ListInvocationRoutesCommand::class,
