@@ -30,7 +30,17 @@ class InvocationRouteRegistrar
                 $registry = app(InvocationRegistry::class);
                 $registry->registerMany($handlers);
 
-                return Route::daprInvokeController($options['controller'] ?? InvokeController::class, $options);
+                /** @var \Illuminate\Routing\Route $route */
+                $route = Route::daprInvokeController($options['controller'] ?? InvokeController::class, $options);
+
+                // 👇 This is the key: put handlers onto the route so they survive route:cache
+                $route->defaults['dapr_handlers'] = array_merge(
+                    $route->defaults['dapr_handlers'] ?? [],
+                    $handlers
+                );
+
+                return $route;
+
             });
         }
     }

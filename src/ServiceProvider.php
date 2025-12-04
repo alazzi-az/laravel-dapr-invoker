@@ -25,7 +25,7 @@ class ServiceProvider extends BaseServiceProvider
 
         InvocationRouteRegistrar::register();
 
-  
+
         if (config('dapr.invocation.auto_register', false)) {
             $this->loadRoutesFrom(__DIR__.'/../routes/dapr-invocation.php');
         }
@@ -77,5 +77,21 @@ class ServiceProvider extends BaseServiceProvider
         $router->group([], function () {
             Route::daprInvokeController();
         });
+    }
+
+    protected function rebuildInvocationRegistryFromRoutes(): void
+    {
+        /** @var InvocationRegistry $registry */
+        $registry = $this->app->make(InvocationRegistry::class);
+
+        $router = $this->app['router'];
+
+        foreach ($router->getRoutes() as $route) {
+            $handlers = $route->defaults['dapr_invoke_handlers'] ?? null;
+
+            if (is_array($handlers) && ! empty($handlers)) {
+                $registry->registerMany($handlers);
+            }
+        }
     }
 }
