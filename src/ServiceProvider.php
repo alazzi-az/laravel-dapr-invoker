@@ -55,8 +55,8 @@ class ServiceProvider extends BaseServiceProvider
                 $deserializer,
                 $serializer,
                 $logger,
-                timeout: config('dapr.invocation.timeout', 10),
-                connectTimeout: config('dapr.invocation.connect_timeout', 10)
+                timeout: config('dapr.client.timeout', 10),
+                connectTimeout: config('dapr.client.connect_timeout', 10)
             );
         });
 
