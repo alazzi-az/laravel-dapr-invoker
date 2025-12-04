@@ -34,8 +34,7 @@ public function invoke(
         array  $query = [],
         array  $headers = []
 ): DaprInvocationResult {
-    $response = $this->invokeRaw($appId, $method, $data, $metadata, $httpMethod);
-
+$response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$headers);
     $status  = $response->getStatusCode();
     $headers = $response->getHeaders();
     $bodyStr = (string) $response->getBody();
