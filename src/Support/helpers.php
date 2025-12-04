@@ -2,6 +2,7 @@
 
 use AlazziAz\LaravelDaprInvoker\Contracts\DaprInvokerContract;
 use AlazziAz\LaravelDaprInvoker\Facades\DaprInvoke;
+use AlazziAz\LaravelDaprInvoker\Support\DaprInvocationResult;
 
 if (! function_exists('dapr_invoke')) {
     function dapr_invoke(
@@ -11,7 +12,7 @@ if (! function_exists('dapr_invoke')) {
         string $httpVerb = 'POST',
         array $query = [],
         array $headers = []
-    ): mixed {
+    ): DaprInvocationResult {
         return DaprInvoke::invoke($appId, $method, $payload, $httpVerb, $query, $headers);
     }
 }
