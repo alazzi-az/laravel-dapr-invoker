@@ -11,16 +11,20 @@ class InvocationRouteRegistrar
     {
         if (! Route::hasMacro('daprInvokeController')) {
             Route::macro('daprInvokeController', function (string $controller = InvokeController::class, array $options = []) {
-                $prefix = trim(config('dapr.invocation.prefix', 'dapr/invoke'), '/');
-                $middleware = $options['middleware'] ?? config('dapr.invocation.middleware', []);
+                $prefix = trim(config('dapr-events.invocation.prefix', 'dapr/invoke'), '/');
+                $middleware = $options['middleware'] ?? config('dapr-events.invocation.middleware', []);
 
-                return Route::prefix($prefix)
+                $registeredRoute = null;
+
+                Route::prefix($prefix)
                     ->middleware($middleware)
-                    ->group(function () use ($controller) {
-                        Route::match(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], '/{method}', $controller)
+                    ->group(function () use ($controller, &$registeredRoute) {
+                        $registeredRoute = Route::match(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], '/{method}', $controller)
                             ->where('method', '[A-Za-z0-9._-]+')
                             ->name('dapr.invoke');
                     });
+
+                return $registeredRoute;
             });
         }
 
@@ -30,17 +34,13 @@ class InvocationRouteRegistrar
                 $registry = app(InvocationRegistry::class);
                 $registry->registerMany($handlers);
 
-                /** @var \Illuminate\Routing\Route $route */
                 $route = Route::daprInvokeController($options['controller'] ?? InvokeController::class, $options);
 
-                // 👇 This is the key: put handlers onto the route so they survive route:cache
-                $route->defaults['dapr_invoke_handlers'] = array_merge(
-                    $route->defaults['dapr_invoke_handlers'] ?? [],
-                    $handlers
-                );
+                if ($route) {
+                    $route->defaults('_dapr_handlers', $handlers);
+                }
 
                 return $route;
-
             });
         }
     }

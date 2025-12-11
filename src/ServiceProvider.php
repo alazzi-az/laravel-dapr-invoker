@@ -29,7 +29,10 @@ class ServiceProvider extends BaseServiceProvider
         if (config('dapr.invocation.auto_register', false)) {
             $this->loadRoutesFrom(__DIR__.'/../routes/dapr-invocation.php');
         }
-        $this->rebuildInvocationRegistryFromRoutes();
+        $this->app->booted(function () {
+            $this->ensureCachedDaprInvokeRouteExists();
+            $this->hydrateHandlersFromRoutes();
+        });
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -72,6 +75,30 @@ class ServiceProvider extends BaseServiceProvider
         });
     }
 
+    /**
+     * When Laravel route caching is enabled the package route file will be skipped.
+     * Make sure the Dapr invoke endpoint is still registered so the cached app
+     * continues to expose /dapr/invoke/{method}.
+     */
+    protected function ensureCachedDaprInvokeRouteExists(): void
+    {
+        if (! $this->app->routesAreCached()) {
+            return;
+        }
+
+        if (! config('dapr.invocation.auto_register', false)) {
+            return;
+        }
+
+        $routes = $this->app['router']->getRoutes();
+
+        if ($routes->hasNamedRoute('dapr.invoke')) {
+            return;
+        }
+
+        $this->registerRoutes();
+    }
+
     protected function registerRoutes(): void
     {
         $router = $this->app['router'];
@@ -92,6 +119,18 @@ class ServiceProvider extends BaseServiceProvider
             $handlers = $route->defaults['dapr_invoke_handlers'] ?? null;
 
             if (is_array($handlers) && ! empty($handlers)) {
+                $registry->registerMany($handlers);
+            }
+        }
+    }
+
+    protected function hydrateHandlersFromRoutes(): void
+    {
+        $registry = $this->app->make(InvocationRegistry::class);
+        $routes = $this->app['router']->getRoutes();
+
+        foreach ($routes as $route) {
+            if ($handlers = $route->defaults['_dapr_handlers'] ?? null) {
                 $registry->registerMany($handlers);
             }
         }
