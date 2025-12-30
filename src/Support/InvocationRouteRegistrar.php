@@ -11,8 +11,8 @@ class InvocationRouteRegistrar
     {
         if (! Route::hasMacro('daprInvokeController')) {
             Route::macro('daprInvokeController', function (string $controller = InvokeController::class, array $options = []) {
-                $prefix = trim(config('dapr-events.invocation.prefix', 'dapr/invoke'), '/');
-                $middleware = $options['middleware'] ?? config('dapr-events.invocation.middleware', []);
+                $prefix = trim(config('dapr.invocation.prefix', 'dapr/invoke'), '/');
+                $middleware = $options['middleware'] ?? config('dapr.invocation.middleware', []);
 
                 $registeredRoute = null;
 

@@ -2,6 +2,7 @@
 
 namespace AlazziAz\LaravelDaprInvoker\Support;
 
+use AlazziAz\LaravelDaprInvoker\Middleware\InvokerMiddleware;
 use Dapr\Client\AppId;
 use Dapr\Client\DaprClient;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -13,16 +14,23 @@ use AlazziAz\LaravelDaprInvoker\Exceptions\DaprInvocationException;
 */
 class DaprInvoker implements DaprInvokerContract
 {
+    /** @var array<int,class-string<InvokerMiddleware>|InvokerMiddleware> */
+    protected array $middleware = [];
     public function __construct(
         protected DaprClient $client,
         protected ?string $defaultAppId = null,
         /** @var array<string,string> */
         protected array $defaultHeaders = [],
+        /** @var array<int,class-string<InvokerMiddleware>|InvokerMiddleware> */
+        array $middleware = [],
     ) {
         // Allow pulling defaults from Laravel config if available
         if (\function_exists('config')) {
             $this->defaultAppId   = $this->defaultAppId   ?? (string) (config('dapr.invocation.default_app_id') ?? '');
             $this->defaultHeaders = $this->defaultHeaders ?: (array)  (config('dapr.invocation.default_headers') ?? []);
+            $this->middleware     = $middleware ?: (array) (config('dapr.invoker.middleware') ?? []);
+        } else {
+            $this->middleware = $middleware;
         }
     }
 
@@ -33,7 +41,8 @@ public function invoke(
         string $httpVerb = 'POST',
         array  $query = [],
         array  $headers = []
-): DaprInvocationResult {
+): DaprInvocationResult
+{
 $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$headers);
     $status  = $response->getStatusCode();
     $headers = $response->getHeaders();
@@ -56,6 +65,7 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
     );
 }
 
+
     public function invokeRaw(
         string $appId,
         string $method,
@@ -64,20 +74,32 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
         array  $query = [],
         array  $headers = []
     ): mixed {
-        [$methodPath, $verb, $data, $meta] = $this->buildInvocation($appId, $method, $payload, $httpVerb, $query, $headers);
+        $context = new InvocationContext($appId, $method, $payload, $httpVerb, $query, $headers, async: false);
 
-        try {
-            return $this->client->invokeMethod(
-                httpMethod: $verb->value,
-                appId: new AppId($appId ?: $this->requireDefaultAppId()),
-                methodName: $methodPath,
-                data: $data,
-                metadata: $meta
+        return $this->runMiddleware($context, function (InvocationContext $ctx) {
+            [$methodPath, $verb, $data, $meta] = $this->buildInvocation(
+                $ctx->appId(),
+                $ctx->method(),
+                $ctx->payload(),
+                $ctx->httpVerb(),
+                $ctx->query(),
+                $ctx->headers(),
             );
-        } catch (\Throwable $e) {
-            throw new DaprInvocationException($e->getMessage(), (int) $e->getCode(), $e);
-        }
+
+            try {
+                return $this->client->invokeMethod(
+                    httpMethod: $verb->value,
+                    appId: new AppId($ctx->appId() ?: $this->requireDefaultAppId()),
+                    methodName: $methodPath,
+                    data: $data,
+                    metadata: $meta
+                );
+            } catch (\Throwable $e) {
+                throw new DaprInvocationException($e->getMessage(), (int) $e->getCode(), $e);
+            }
+        });
     }
+
 
     public function invokeAsync(
         string $appId,
@@ -87,21 +109,30 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
         array  $query = [],
         array  $headers = []
     ): PromiseInterface {
-        [$methodPath, $verb, $data, $meta] = $this->buildInvocation($appId, $method, $payload, $httpVerb, $query, $headers);
+        $context = new InvocationContext($appId, $method, $payload, $httpVerb, $query, $headers, async: true);
 
-        try {
-            return $this->client->invokeMethodAsync(
-                httpMethod: $verb->value,
-                appId: new AppId($appId ?: $this->requireDefaultAppId()),
-                methodName: $methodPath,
-                data: $data,
-                metadata: $meta
+        return $this->runMiddleware($context, function (InvocationContext $ctx) {
+            [$methodPath, $verb, $data, $meta] = $this->buildInvocation(
+                $ctx->appId(),
+                $ctx->method(),
+                $ctx->payload(),
+                $ctx->httpVerb(),
+                $ctx->query(),
+                $ctx->headers(),
             );
-        } catch (\Throwable $e) {
-            // For async flows we still surface an immediate construction error;
-            // request-level failures will arrive via the promise.
-            throw new DaprInvocationException($e->getMessage(), (int) $e->getCode(), $e);
-        }
+
+            try {
+                return $this->client->invokeMethodAsync(
+                    httpMethod: $verb->value,
+                    appId: new AppId($ctx->appId() ?: $this->requireDefaultAppId()),
+                    methodName: $methodPath,
+                    data: $data,
+                    metadata: $meta
+                );
+            } catch (\Throwable $e) {
+                throw new DaprInvocationException($e->getMessage(), (int) $e->getCode(), $e);
+            }
+        });
     }
 
     public function get(string $appId, string $method, array $query = [], array $headers = []): mixed
@@ -185,5 +216,34 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
     public function deleteAsync(string $appId, string $method, array $query = [], array $headers = []): PromiseInterface
     {
         return $this->invokeAsync($appId, $method, null, HttpVerb::DELETE->value, $query, $headers);
+    }
+
+    protected function runMiddleware(InvocationContext $context, \Closure $terminal): mixed
+    {
+        $stack = array_reverse($this->middleware);
+
+        $next = $terminal;
+
+        foreach ($stack as $mw) {
+            $instance = \is_object($mw) ? $mw : $this->makeMiddleware($mw);
+
+            /**
+             * @throws \Exception
+             */
+            $next = function (InvocationContext $ctx) use ($instance, $next) {
+                return $instance->handle($ctx, $next);
+            };
+        }
+
+        return $next($context);
+    }
+
+    protected function makeMiddleware(string $class): object
+    {
+        if (\function_exists('app')) {
+            return app($class);
+        }
+
+        return new $class();
     }
 }
