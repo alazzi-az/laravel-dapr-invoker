@@ -8,7 +8,7 @@ if (! function_exists('dapr_invoke')) {
     function dapr_invoke(
         string $appId,
         string $method,
-        mixed $payload = null,
+        mixed $payload = [],
         string $httpVerb = 'POST',
         array $query = [],
         array $headers = []
@@ -21,7 +21,7 @@ if (! function_exists('dapr_invoke_async')) {
     function dapr_invoke_async(
         string $appId,
         string $method,
-        mixed $payload = null,
+        mixed $payload = [],
         string $httpVerb = 'POST',
         array $query = [],
         array $headers = []

@@ -37,7 +37,7 @@ class DaprInvoker implements DaprInvokerContract
 public function invoke(
         string $appId,
         string $method,
-        mixed  $payload = null,
+        mixed  $payload = [],
         string $httpVerb = 'POST',
         array  $query = [],
         array  $headers = []
@@ -69,7 +69,7 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
     public function invokeRaw(
         string $appId,
         string $method,
-        mixed  $payload = null,
+        mixed  $payload = [],
         string $httpVerb = 'POST',
         array  $query = [],
         array  $headers = []
@@ -104,7 +104,7 @@ $response = $this->invokeRaw($appId, $method, $payload,  $httpVerb,$query,$heade
     public function invokeAsync(
         string $appId,
         string $method,
-        mixed  $payload = null,
+        mixed  $payload = [],
         string $httpVerb = 'POST',
         array  $query = [],
         array  $headers = []
